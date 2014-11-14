@@ -390,7 +390,7 @@ int main(int argc, char **argv)
 	struct sigaction sigact, sigign;
 #endif
 
-    while ((opt = getopt(argc, argv, "a:p:f:g:s:b:n:d:P:N:")) != -1) {
+    while ((opt = getopt(argc, argv, "a:p:f:g:s:b:n:d:P:N")) != -1) {
 		switch (opt) {
 		case 'd':
 			dev_index = verbose_device_search(optarg);
