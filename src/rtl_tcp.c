@@ -81,6 +81,7 @@ static rtlsdr_dev_t *dev = NULL;
 static int global_numq = 0;
 static struct llist *ll_buffers = 0;
 static int llbuf_num = 500;
+static int llbuf_discard_recent = 0;
 
 static volatile int do_exit = 0;
 
@@ -96,7 +97,8 @@ void usage(void)
 		"\t[-n max number of linked list buffers to keep (default: 500)]\n"
 		"\t[-d device index (default: 0)]\n"
 		"\t[-P ppm_error (default: 0)]\n"
-		"\t[-N no dithering (default: use dithering)]\n");
+		"\t[-N no dithering (default: use dithering)]\n"
+		"\t[-B discard new data while linked-list buffer is full (default: discard oldest data in list)]\n");
 	exit(1);
 }
 
@@ -160,16 +162,23 @@ void rtlsdr_callback(unsigned char *buf, uint32_t len, void *ctx)
 				num_queued++;
 			}
 
-			if(llbuf_num && llbuf_num == num_queued-2){
+			if(llbuf_num && llbuf_num == num_queued-2 && !llbuf_discard_recent){
 				struct llist *curelem;
 
 				free(ll_buffers->data);
 				curelem = ll_buffers->next;
 				free(ll_buffers);
 				ll_buffers = curelem;
-			}
 
-			cur->next = rpt;
+				cur->next = rpt;
+			}
+			else if (llbuf_num && llbuf_num == num_queued-2){ //llbuf_discard_recent
+				free(rpt->data);
+				free(rpt);
+			}
+			else {
+				cur->next = rpt;
+			}
 
 			if (num_queued > global_numq)
 				printf("ll+, now %d\n", num_queued);
@@ -390,7 +399,7 @@ int main(int argc, char **argv)
 	struct sigaction sigact, sigign;
 #endif
 
-	while ((opt = getopt(argc, argv, "a:p:f:g:s:b:n:d:P:N")) != -1) {
+	while ((opt = getopt(argc, argv, "a:p:f:g:s:b:n:d:P:NB")) != -1) {
 		switch (opt) {
 		case 'd':
 			dev_index = verbose_device_search(optarg);
@@ -423,6 +432,9 @@ int main(int argc, char **argv)
 			break;
 		case 'N':
 			dithering = 0;
+			break;
+		case 'B':
+			llbuf_discard_recent = 1;
 			break;
 		default:
 			usage();
